@@ -260,6 +260,21 @@
 
             if (count($themes))
             {
+                function detectAndMergeTransitions(array & $dataArray, ?string $fileContent): void
+                {
+                    if (!$fileContent) return;
+
+                    preg_match_all("/pll_[_e][\s]*\([\s]*[\'\"](.*?)[\'\"][\s]*[\),]/uis", $fileContent, $m);
+
+                    if (count($m[0])) {
+                        foreach ($m[1] as $mv) {
+                            if (!in_array($mv, $dataArray)) {
+                                $dataArray['strings'][] = $mv;
+                            }
+                        }
+                    }
+                }
+
                 foreach ($themes as $theme_dir_name => $theme)
                 {
                     $data = array(
@@ -269,31 +284,19 @@
 
                     $theme_path = $theme->theme_root . '/' . $theme_dir_name;
 
-                    if (file_exists($theme_path))
-                    {
+                    if (file_exists($theme_path)) {
                         $files = self::Files_Recursive_Get($theme_path);
 
-                        foreach($files as $v)
-                        {
-                            if (preg_match("/\/.*?\.(php[0-9]?|inc)$/uis", $v))
-                            {
-                                preg_match_all("/(?:\<\?.*?\?\>)|(?:\<\?.*?[^\?]+[^\>]+)|(?:\{\{.*?\}\})|(?:\{\!\!.*?\!\!\})|(?:@php.*?@endphp)/uis", file_get_contents($v), $p);
+                        foreach($files as $v) {
+                            if (preg_match("/\/.*?\.(php[0-9]?|inc)$/uis", $v)) {
+                                if (str_contains($v, "$theme_dir_name/app/View/")) {
+                                    detectAndMergeTransitions($data, file_get_contents($v));
+                                } else {
+                                    preg_match_all("/(?:\<\?.*?\?\>)|(?:\<\?.*?[^\?]+[^\>]+)|(?:\{\{.*?\}\})|(?:\{\!\!.*?\!\!\})|(?:@php.*?@endphp)/uis", file_get_contents($v), $p);
 
-                                if (count($p[0]))
-                                {
-                                    foreach ($p[0] as $pv)
-                                    {
-                                        preg_match_all("/pll_[_e][\s]*\([\s]*[\'\"](.*?)[\'\"][\s]*[\),]/uis", $pv, $m);
-
-                                        if (count($m[0]))
-                                        {
-                                            foreach ($m[1] as $mv)
-                                            {
-                                                if (!in_array($mv, $data))
-                                                {
-                                                    $data['strings'][] = $mv;
-                                                }
-                                            }
+                                    if (count($p[0])) {
+                                        foreach ($p[0] as $pv) {
+                                            detectAndMergeTransitions($data, $pv);
                                         }
                                     }
                                 }
